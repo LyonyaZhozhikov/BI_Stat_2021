@@ -1,0 +1,92 @@
+---
+title: "StatBI_practice_3_hospital_data_in_R"
+author: "Zhozhikov Leonid"
+date: "11/25/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = ".")
+getwd()
+```
+#### getting started with environment and libraries 
+```{r tabsets}
+library(knitr)
+library(magrittr)
+library(dplyr)
+# setwd('..')
+# print(getwd())
+```
+
+### First objective!
+#### merging all available data in our folder
+```{r}
+reader <-  function(f_ext, PATH) {
+  lst_files <- list.files(PATH, pattern = paste('*.', f_ext, sep = ''))
+  df <-  read.csv(paste(PATH, lst_files[1], sep = ''))
+  for (i in lst_files[-1]) df <- rbind(df, read.csv(paste(PATH, i, sep = '')))
+  return(df)
+}
+
+df <- reader('csv', PATH= './/data//')
+```
+
+### second!
+#### general data observations
+```{r}
+dim(df)
+str(df)
+summary(df)
+colnames(df)
+head(df)
+tail(df)
+```
+#### finding strange pieces of data
+```{r}
+unique(df$x)
+unique(df$gender) ###
+unique(df$age) ###
+unique(df$drug_type)
+unique(df$is_relapse) ### 
+# unique(df$id) well, am sure they are fine)
+# unique(df$days_in_hospital) well, am sure they are fine)
+```
+#### replace na
+```{r}
+df$is_relapse[is.na(df$is_relapse)] = 0
+```
+#### correct ages
+```{r}
+df$age <- recode(df$age, "thirty-one"="31", "350"="35", "220"="22", .default = df$age)
+unique(df$age)
+```
+#### correct gender
+```{r}
+df$gender <- recode(df$gender, "malle"="male", .default = df$gender)
+unique(df$gender)
+```
+#### recheck the values
+```{r}
+unique(df$gender)
+unique(df$age)
+unique(df$is_relapse)
+```
+### third one!
+```{r}
+df %>% group_by(drug_type) %>%
+  summarise(days_in_hospital = mean(days_in_hospital))
+
+df %>% group_by(drug_type) %>%
+  summarise(days_in_hospital = sd(days_in_hospital))
+```
+### 4ourth!
+```{r}
+df %>% group_by(gender, drug_type) %>%
+  summarise(days_in_hospital = mean(days_in_hospital))
+
+df %>% group_by(gender, drug_type) %>%
+  summarise(days_in_hospital = sd(days_in_hospital))
+```
+# thats all folks!
+

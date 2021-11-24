@@ -88,5 +88,5 @@ df %>% group_by(gender, drug_type) %>%
 df %>% group_by(gender, drug_type) %>%
   summarise(days_in_hospital = sd(days_in_hospital))
 ```
-# thats all folks!
+![прошу прощения, что всё, очень долго разбирался с тем чтобы сделать нормальную домашнюю директорию, а начал работать как всегда за пару часов до дедлайна(](https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Thats_all_folks.svg/2560px-Thats_all_folks.svg.png)
 

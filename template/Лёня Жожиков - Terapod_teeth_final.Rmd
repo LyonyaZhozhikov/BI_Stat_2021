@@ -1,0 +1,246 @@
+---
+title: "Terapod_teeth"
+author: "Danilov Lavrentii"
+date: "2020-11-28"
+output:
+    html_document:
+      toc: true
+      toc_depth: 3
+      toc_float: true
+      number_section: true
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(vegan)
+library(dplyr)
+library(ggplot2)
+library(grid)
+library(ggpubr)
+library(factoextra)
+
+ url<- "https://bioone.org/ContentImages/Journals/acpp/59/4/app.2012.0111/graphic/WebImages/f01_855.jpg"
+```
+
+# Описание данных
+
+Сегодня мы будем работать с данными по линейной морфометрии зубов ископаемых терапод. 
+
+**Данные взяты из статьи:** doi:10.1144/sjg2014-022.
+
+**Признаки:**
+
+ - crown base length (CBL) 
+ - crown base width (CBW) 
+ - crown height (CH) 
+ - apical length (AL)  
+ - distal carina (DC) 
+ - mesial crania (MC)
+
+В исходной статье авторы не приводят схему измерений, так что примерная схема из другой работы
+ 
+ <center><img src="`r url`"></center>
+
+## Предобработка данных
+
+Данные сохранены в формате xlsx и требуют предобработки
+
+```{r}
+terapod_1<-read_excel(path = "/home/lavrentydanilov/Documents/Documents/IB/Teaching/2020-2021_year/Data/dino_teeth.xlsx", sheet = 1, na =c("?", "/"))
+terapod_2<-read_excel(path = "/home/lavrentydanilov/Documents/Documents/IB/Teaching/2020-2021_year/Data/dino_teeth.xlsx", sheet = 2, na =c("?", "/"))
+terapod_1$Taxon<-terapod_2$Group
+terapod<-na.omit(terapod_1[, c(1, 6:11)])
+```
+
+Датасет достаточно объемный, так что бы воспользуемся только его частью. А именно информацией по 4 таксонам: [Tyrannosauridae](https://www.deviantart.com/rsnascimento/art/Tyrannosauridae-I-269123749), [Spinosauridae](https://prehistorico.fandom.com/es/wiki/Spinosauridae), [Dromaeosauridae](https://twitter.com/extinct_animais/status/1053734353849716736) и [Carcharodontosauridae](https://www.pinterest.ru/pin/370069294365690382/). 
+
+```{r}
+terapod_select<-terapod %>% filter(Taxon=="Tyrannosauridae"|Taxon=="Spinosauridae"|Taxon=="Dromaeosauridae"|Taxon=="Carcharodontosauridae") %>% mutate(Taxon = factor(Taxon))
+```
+
+## Структура данных
+
+Будем работать с `r nrow(terapod_select)` описаниями по `r ncol(terapod_select)` признакам.
+
+```{r}
+str(terapod_select)
+```
+
+Обратим внимание на размеры таксономических групп.
+
+```{r}
+table(terapod_select$Taxon)
+```
+
+
+
+# Многомерный анализ
+
+## Многомерные данные
+
+Многмерные данные -- несколько групп данных, которые описываются множеством признаков.
+
+```{r, }
+ggscatterhist(
+  iris, x = "Sepal.Length", y = "Sepal.Width",
+  color = "Species", size = 3, alpha = 0.6,
+  palette = c("#00AFBB", "#E7B800", "#FC4E07"),
+  margin.params = list(fill = "Species", color = "black", size = 0.2))
+
+```
+
+## Анализ главных компонент (PCA)
+
+### Применение PCA и возможные варианты его реализации
+
+Чаще всего PCA используется для:
+
+ - Ординация объектов по многим признакам
+ - Описание системы взаимосвязей между множеством исходных признаков и ранжирование признаков по важности
+ - Снижение размерности многомерных данных (dimension reduction) и создание синтетических взаимонезависимых признаков для других анализов (например, для регрессии, дискриминантного анализа)
+
+
+Существует множество вариантов проведелния анализа главных компонент. В данном разборе мы проведем анализ главных компонент средствами пакета `vegan`. 
+
+```{r}
+terapod_pca <- rda(terapod_select[, -1], scale = TRUE)
+```
+
+### Основные компоненты
+
+Разберем какие важные блоки есть в `summary`
+
+**Eigenvalues (собственные числа)** 
+
+Собственные числа показывают дисперсию вдоль осей, заданных собственными векторами. По значениям собственных чисел можно вычислить долю общей изменчивости, связанной с каждой из главных компонент.
+
+**Eigenvectors (собственные векторы, факторные нагрузки)**
+
+Собственные векторы задают главные компоненты — направления новых осей.
+
+Собственные векторы также называются факторные нагрузки, т.к. это линейные комбинации исходных признаков. В нашем случае их 6 - на одну меньше, чем исходных признаков.
+
+Могут быть рассчитаны как для признаков (**Species scores**). В нашем случае для морфологических характеристик зубов.  Могут быть рассчитаны и для объектов (**Site scores**). В нашем случае для каждого отдельного ископаемого зуба.
+
+
+```{r}
+head(summary(terapod_pca))
+```
+
+### Графики
+
+В зависимости от задачи могут быть построены несколько типов графиков ординации.
+
+#### Биплот с симметричным шкалированием
+
+Такой график отражает одновременно и признаки и объекты. Но его нельзя итерпретировать.
+
+```{r}
+biplot(terapod_pca)
+```
+
+#### Биплот корреляций (график нагрузок)
+
+Углы между векторами отражают корреляции признаков друг с другом и с осями главных компонент.
+
+```{r}
+biplot(terapod_pca, scaling = "species", display = "species")
+```
+
+#### Биплот расстояний (график ординации)
+
+Расстояния между точками (объектами - индивидуальныйми зубами) апроксимируют евклидовы расстояния и отражают сходство между объектами - индивидивидуальными зубами.
+
+```{r}
+biplot(terapod_pca, scaling = "sites", display = "sites")
+```
+
+#### График ординации помощью ggplot2
+
+Построим график ординации в осях первых двух главных компонент
+
+```{r}
+df_scores <- data.frame(terapod_select,
+                        scores(terapod_pca, display = "sites", choices = c(1, 2, 3), scaling = "sites"))
+
+p_scores <- ggplot(df_scores, aes(x = PC1, y = PC2)) + 
+  geom_point(aes( color = Taxon), alpha = 0.5) +
+  coord_equal(xlim = c(-1.2, 1.2), ylim = c(-1.2, 1.2)) + ggtitle(label = "Ординация в осях главных компонент") + theme_bw()
+p_scores
+```
+
+### Интерпретация PCA
+
+#### Количество компонент
+
+В самом начале необходимо понять, какой вклад вносит каждая компонента. Для этого есть условные коэффициенты, а также это можно проанализировать с использованием графика собственных чисел.
+
+```{r}
+eigenvals(terapod_pca)
+bstick(terapod_pca)
+
+screeplot(terapod_pca, type = "lines", bstick = TRUE) # график собственных чисел
+```
+
+Другим простым способом для объяснения того, какой вклад вносит та или иная компонента -- посмотреть в summary() Proportion Explained. Это можно визуализировать:
+
+```{r}
+
+pca_summary <- summary(terapod_pca)
+pca_result <- as.data.frame(pca_summary$cont)
+plot_data <- as.data.frame(t(pca_result[c("Proportion Explained"),]))
+plot_data$component <- rownames(plot_data)
+
+ggplot(plot_data, aes( component, `Proportion Explained`)) + geom_bar(stat = "identity") + theme_bw()
+```
+
+#### Интерпретация компонент
+
+Факторные нагрузки оценивают вклады переменных в изменчивость по главной компоненте
+
+- модуль значения нагрузки — величина вклада
+- знак значения нагрузки — направление вклада
+
+```{r}
+scores(terapod_pca, display = "species", 
+       choices = c(1, 2, 3), scaling = 0)
+```
+
+В нашей модели мы можем видеть, что **высокие положительные нагрузки по первой главной компоненте** у признаков CBL, CBW, AL и СH. Значит, чем больше значение первой компоненты, тем больше основание зуба, высота зуба и его диагональ. **Высокие отрицательные нагрузки** у признаков MC и DC. Это означает, что чем меньше значение первой компоненты, тем больше дистальная и медиальная часть киля у зуба.
+
+Аналогично мы можем описать и втроую компоненту. **Высоких положительных нагрузок по второй компоненте** мы не видим, а вот **высокие отрицательные нагрузки** встречаются  у признаков MC и DC. Это означает, что чем меньше значение второй компоненты, тем больше дистальная и медиальная часть киля у зуба.
+
+#### Ещё одна визуализация PCA
+
+Есть пакет `factoextra`, который умеет рисовать много разных симпатичных графиков для РСА. Один минус - работает только с базовой функцией `prcomp`. С пакетом `vegan` не дружит...
+
+```{r}
+terapod_pca_base<- prcomp(terapod_select[, -1], scale = TRUE)
+fviz_pca_ind(terapod_pca_base,
+             geom.ind = "point", # show points only (nbut not "text")
+             col.ind = terapod_select$Taxon, # color by groups
+             palette = "Dark2",
+             addEllipses = TRUE, # Concentration ellipses
+             legend.title = "Taxon"
+             )
+```
+
+
+#### А есть ли различия между 
+
+## Неметрическое многомерное шкалирование (nMDS)
+
+nMDS используется как один из способов визуализации отношений между объектам.
+
+В данном случае мы используем матрицу расстояний Брея-Куртиса и автотрансформацию данных. Выбор определялся тем, что при более подходящей по логике матрице Евклидового расстояния модель не сходилась. 
+
+```{r echo = T, results = 'hide'}
+ord<-metaMDS(comm = terapod_select[, -1], distance = "bray",autotransform = F)
+```
+
+Один из показателей качества апроксимации это стресс. В нашем случае он равен `r ord$stress` при норме от 0.15 и больше. То есть наша ординация крайне низкого качества (но она хотя бы сошлась в отличие от Евклидовой).
+
+```{r}
+ord_pt <- data.frame(terapod_select[, 1], scores(ord, display = "sites"))
+ggplot(ord_pt, aes(NMDS1, NMDS2, color = Taxon))+geom_point()+ggtitle(label = "Ординация nMDS")
+```
